@@ -26,11 +26,8 @@ class InpaintNetwork:
         self.conf = NetworkConfig(self.config_file)
         self.optimizer = optimizers.Adam(lr=2e-4, beta_1=0.5)   # see Radford et al. 2015
 
-        #self.lossD = ['mse', 'categorical_crossentropy']
-        #self.wlossD = [0.5, 0.5]
-
-        self.lossD = 'binary_crossentropy'
-        self.lossGAN = 'mae'
+        self.lossGAN = self.conf.lossGAN
+        self.wlossGAN = self.conf.wlossGAN
 
         # Create output directory and sub-directories
         if PATH_OUTPUT != None:
@@ -59,11 +56,13 @@ class InpaintNetwork:
 
     def GAN(self):
         net = NetworkComponents(CONFIG_FILE=self.config_file, PATH_OUTPUT=self.path_output)
-        #self.generator = net.Autoencoder()
-        self.generator = net.Unet()
+        if(self.conf.type_of_gen == 'auto'):
+            self.generator = net.Autoencoder()
+        elif(self.conf.type_of_gen == 'unet'):
+            self.generator = net.Unet()
+        
         self.discriminator = net.Discriminator()
-        #self.discriminator.compile(loss=self.lossD, loss_weights=self.wlossD, optimizer=self.optimizer, metrics=['accuracy'])        
-        self.discriminator.compile(loss=self.lossD, optimizer=self.optimizer)        
+        self.discriminator.compile(loss='binary_crossentropy', optimizer=self.optimizer)
 
         masked_img = models.Input(shape=self.conf.img_shape)
         reconstr_img = self.generator(masked_img)
@@ -83,12 +82,17 @@ class InpaintNetwork:
         self.discriminator.trainable = False
         label_output = self.discriminator(reconstr_img)
 
-        self.gan = models.Model(masked_img, label_output)
-        self.gan.compile(loss=self.lossGAN, optimizer=self.optimizer)
+        if(len(self.lossGAN) == 1 and len(self.wlossGAN) == 1):
+            self.gan = models.Model(masked_img, label_output)
+            self.gan.compile(loss=self.lossGAN, optimizer=self.optimizer)
+        else:
+            self.gan = models.Model(masked_img, [reconstr_img, label_output])
+            self.gan.compile(loss=self.lossGAN, loss_weights=self.wlossGAN, optimizer=self.optimizer)
 
         # Save model visualization
         plot_model(self.generator, to_file=self.path_output+'images/generator_visualization.png', show_shapes=True, show_layer_names=True)
         plot_model(self.discriminator, to_file=self.path_output+'images/adversary_visualization.png', show_shapes=True, show_layer_names=True)
+        plot_model(self.gan, to_file=self.path_output+'images/gan_visualization.png', show_shapes=True, show_layer_names=True)
         return self.gan
 
 
@@ -114,7 +118,13 @@ class InpaintNetwork:
         ld = LoadData(IMG_SHAPE=self.conf.img_shape, PATH_DATA=self.conf.dataset, PATH_MASK='inputs/mask/testing_mask_dataset/')
         plot = Plots(IMG_SHAPE=self.conf.img_shape, PATH_DATA=self.conf.dataset, PATH_MASK='inputs/mask/testing_mask_dataset/', PATH_OUTPUT=self.path_output)
 
-        self.loss_G = []
+        if(len(self.lossGAN) == 1 and len(self.wlossGAN) == 1):
+            self.loss_G = []
+        else:
+            self.loss_G = []
+            self.loss_G1 = []
+            self.loss_G2 = []
+
         self.loss_D_real = []
         self.loss_D_fake = []
         prev_epoch = 0
@@ -139,12 +149,20 @@ class InpaintNetwork:
 
                 # train generator network
                 real_label2 = GenerateLabels(self.conf.batch_size, return_label='real')
-                loss_gen = self.gan.train_on_batch(masksed_images, real_label2)
+                if(len(self.lossGAN) == 1 and len(self.wlossGAN) == 1):
+                    loss_gan = self.gan.train_on_batch(masksed_images, real_label2)
+                else:
+                    loss_gan = self.gan.train_on_batch(masksed_images, [fake_images, real_label2])
 
             # store losses at the end of every batch cycle
             self.loss_D_real.append(loss_real)
-            self.loss_D_fake.append(loss_fake)    
-            self.loss_G.append(loss_gen)
+            self.loss_D_fake.append(loss_fake)
+            if(len(self.lossGAN) == 1 and len(self.wlossGAN) == 1):
+                self.loss_G.append(loss_gan)
+            else:
+                self.loss_G.append(loss_gan[0])
+                self.loss_G1.append(loss_gan[1])
+                self.loss_G2.append(loss_gan[2])
 
             # Create weight checkpoint and intermediate plots
             if(ep%5 == 0 or (ep+1) == self.conf.epochs):
@@ -154,10 +172,19 @@ class InpaintNetwork:
                 prev_epoch = ep
 
             t2 = time()
-            print(' Epoch %d : t=%ds  ---  [ D: L_real=%.3f, L_fake=%.3f ]  [ G: L_gan=%.3f ]' %(ep+1, t2-t1, self.loss_D_real[ep], self.loss_D_fake[ep], self.loss_G[ep]))
+            if(len(self.lossGAN) == 1 and len(self.wlossGAN) == 1):
+                print(' Epoch %d : t=%ds  ---  [ D: L_real=%.3f, L_fake=%.3f ]  [ G: L_gan=%.3f ]' %(ep+1, t2-t1, self.loss_D_real[ep], self.loss_D_fake[ep], self.loss_G[ep]))
+            else:
+                print(' Epoch %d : t=%ds  ---  [ D: L_real=%.3f, L_fake=%.3f ]  [ G: L_gan=%.3f, L_mse=%.3e, L_bc=%.3f ]' %(ep+1, t2-t1, self.loss_D_real[ep], self.loss_D_fake[ep], self.loss_G[ep], self.loss_G1[ep], self.loss_G2[ep]))
 
         # save final losses and weights
-        np.savetxt('%slossG.txt' %self.path_output, self.loss_G)
+        if(len(self.lossGAN) == 1 and len(self.wlossGAN) == 1):
+            np.savetxt('%slossG.txt' %self.path_output, self.loss_G)
+        else:
+            np.savetxt('%slossG_tot.txt' %self.path_output, self.loss_G)
+            np.savetxt('%slossG_1.txt' %self.path_output, self.loss_G)
+            np.savetxt('%slossG_2.txt' %self.path_output, self.loss_G)
+    
         np.savetxt('%slossAr.txt' %self.path_output, self.loss_D_real)
         np.savetxt('%slossAf.txt' %self.path_output, self.loss_D_fake)
 

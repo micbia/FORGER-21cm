@@ -12,7 +12,7 @@ class Plots:
         self.path_output = PATH_OUTPUT
         self.img_shape = IMG_SHAPE
 
-        self.img_arr = ['10010.png', '40860.png', '40841.png', '40858.png', '40842.png', '40869.png', '40848.png', '40873.png', '40852.png', '40854.png']
+        self.img_arr = ['10010.png', '40860.png', '40841.png', '40858.png', '40842.png', '40869.png', '40862.png', '40873.png', '40852.png', '40854.png']
         self.mask_arr = ['00249.png', '00261.png', '00261.png', '00296.png', '00284.png', '00344.png', '00477.png', '00472.png', '00510.png', '00641.png']
 
     def PlotLosses(self, epch, prev_epch, loss_D_real, loss_D_fake, loss_G):

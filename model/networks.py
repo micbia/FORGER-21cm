@@ -50,11 +50,6 @@ class NetworkComponents:
         # Classifier Branch
         label_output = Flatten()(features_output)
         label_output = Dense(self.conf.img_shape[2], activation='sigmoid')(label_output)
-        """
-        # Validity Branch
-        validity_output = Conv2D(filters=self.conf.img_shape[2], kernel_size=self.conf.filters,
-                                 strides=1, kernel_initializer=kinit, padding='same')(features_output)
-        """
         
         #D = models.Model(img_input, [validity_output, label_output])
         D = models.Model(img_input, label_output)
