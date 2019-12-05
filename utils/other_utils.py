@@ -1,7 +1,7 @@
 import numpy as np, random
 
 def ReadTensor(filename, bits=32, order='C', dimensions=3):
-    ''' Read a binary file with three inital integers (a cbin file).
+    ''' Read a binary file with three/two inital integers (a cbin file).
 
     Parameters:
         * filename (string): the filename to read from
@@ -24,6 +24,30 @@ def ReadTensor(filename, bits=32, order='C', dimensions=3):
     data = np.fromfile(f, dtype=datatype, count=np.prod(temp_mesh))
     data = data.reshape(temp_mesh, order=order)
     return data
+
+
+def SaveTensor(filename, matrix, size, bits=32, order='C'):
+    ''' Save a tensor as binary file. Indicated for very large matrix.
+
+        Parameters:
+                * filename (string): the filename to save to
+                * matrix (numpy array): the matrix to save
+                * size (tuple): the matrix size, must be a tuple of integer
+                * bits = 32 (integer): the number of bits in the file
+                * order = 'C' (string): the ordering of the data (can be'C' for C/C++ or 'F' Fortran)
+        Returns:
+                Nothing
+
+    '''
+    print('Saving matrix file: %s' % filename)
+
+    assert(bits == 32 or bits == 64)
+    f = open(filename, 'wb')
+    mesh = np.array(size).astype('int32')
+    mesh.tofile(f)
+    datatype = (np.float32 if bits == 32 else np.float64)
+    matrix.flatten(order=order).astype(datatype).tofile(f)
+    f.close()
 
 
 def GenerateNoise(batch_size, input_size):

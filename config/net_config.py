@@ -49,6 +49,9 @@ class NetworkConfig:
         self.filters        = eval(trainconfig['FILTERS'])
         self.epochs         = eval(trainconfig['EPOCHS'])
         self.batch_size     = eval(trainconfig['BATCH_SIZE'])
+        self.learn_rate     = eval(trainconfig['LR'])
+        self.lr_decay       = eval(trainconfig['LR_DECAY'])
+        self.lossD          = trainconfig['LOSS_D']
         self.lossGAN        = trainconfig['LOSS_GAN'].split(', ')
         self.wlossGAN       = list(np.array(eval(trainconfig['WLOSS_GAN']), dtype=float))
         self.dropout        = eval(trainconfig['DROPOUT'])

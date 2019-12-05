@@ -3,7 +3,7 @@ from matplotlib.image import imread
 from glob import glob
 from PIL import Image
 
-from utils.other_utils import RescaleData
+from utils.other_utils import RescaleData, ReadTensor
 
 class LoadData:
     def __init__(self, IMG_SHAPE, PATH_DATA, PATH_MASK='inputs/mask/testing_mask_dataset/'):
@@ -15,18 +15,25 @@ class LoadData:
     def LoadTrainingData(self, resize):
         print('Loading dataset: %s' %self.path_data)
         images = np.array(glob(self.path_data+'*.*'))
-        nr_imgs, imgs_shape = images.size, imread(images[0]).shape
-        if(tuple(resize[:-1]) != imgs_shape):
-            print(' --- Inpaint WARNING !!! ---\nprovided shape and images shape does not correspond:\t%s != %s.\nImage are resized to shape provaided in INIT file.' %(str(tuple(resize[:-1])), str(imgs_shape)))
-            imgs_shape = resize[:-1]
-        dataset = np.zeros(tuple(np.append(nr_imgs, np.array(imgs_shape))))
+        
+        if(images[0].endswith('.bin')):
+            nr_imgs, imgs_shape = images.size, resize[:-1]
+            dataset = np.zeros(tuple(np.append(nr_imgs, np.array(imgs_shape))))
+            for i, img in enumerate(images):
+                dataset[i] = ReadTensor(filename=img, dimensions=2)
+        else:
+            nr_imgs, imgs_shape = images.size, imread(images[0]).shape
+            if(tuple(resize[:-1]) != imgs_shape):
+                print(' --- Inpaint WARNING !!! ---\nprovided shape and images shape does not correspond:\t%s != %s.\nImage are resized to shape provaided in INIT file.' %(str(tuple(resize[:-1])), str(imgs_shape)))
+                imgs_shape = resize[:-1]
+            dataset = np.zeros(tuple(np.append(nr_imgs, np.array(imgs_shape))))
 
-        for i, img in enumerate(images):
-            dataset[i] = np.array(Image.open(img).resize(imgs_shape, Image.ANTIALIAS))
+            for i, img in enumerate(images):
+                dataset[i] = np.array(Image.open(img).resize(imgs_shape, Image.ANTIALIAS))
 
         dataset = dataset[:, :, :, np.newaxis]
         im_shape = dataset.shape[1:-1]      # eg: for mnist (28, 28)
-        return np.array(dataset), im_shape
+        return dataset, im_shape
 
 
     def BatchSample(self, sample, nr_subsample):
