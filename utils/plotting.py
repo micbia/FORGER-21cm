@@ -58,14 +58,14 @@ class Plots:
             img = np.array(Image.open(self.path_data+img_arr[i]).resize(self.img_shape[:-1], Image.ANTIALIAS))
             mask = np.array(Image.open(self.path_mask+self.mask_arr[i]).resize(img.shape))
             masked = np.where(mask>np.mean(mask)*0.7, img.max(), img)
-   
-            ax[i,0].imshow(masked)
-            ax[i,0].get_xaxis().set_visible(False)
-            ax[i,0].get_yaxis().set_visible(False)
             
             masked = RescaleData(masked[np.newaxis, :, :, np.newaxis], a=-1, b=1)
             reconstr = gmodel.predict(masked)
-         
+
+            ax[i,0].imshow(masked[0,:,:,0])
+            ax[i,0].get_xaxis().set_visible(False)
+            ax[i,0].get_yaxis().set_visible(False)
+                
             ax[i,1].imshow(reconstr[0,:,:,0])
             ax[i,1].get_xaxis().set_visible(False)
             ax[i,1].get_yaxis().set_visible(False)
@@ -86,7 +86,7 @@ class Plots:
 
     def PlotSpecificImages(self, epch, gmodel, dim=(10, 10)):
             # Plot generated images, similar to mnist plotting
-            img_arr = ['image_i0j149.bin', 'image_i0j49.bin', 'image_i30j149.bin', 'image_i30j49.bin', 'image_i60j149.bin', 'image_i60j49.bin']
+            img_arr = ['image_xi0j149_500Mpc.bin', 'image_xi32j149_500Mpc.bin', 'image_xi0j249_244Mpc.bin', 'image_xi40j252_244Mpc.bin', 'image_zi0j128_64Mpc.bin', 'image_xi0j127_64Mpc.bin']
 
             fig, ax = plt.subplots(len(img_arr), 3, figsize=(8, 18))
             plt.subplots_adjust(wspace=0.01, hspace=0.01)
@@ -96,14 +96,14 @@ class Plots:
                 img = ReadTensor(filename=self.path_data+img_arr[i], dimensions=2)
                 mask = np.array(Image.open(self.path_mask+self.mask_arr[i]).resize(img.shape))
                 masked = np.where(mask>np.mean(mask)*0.7, img.max(), img)
-    
-                ax[i,0].imshow(masked)
-                ax[i,0].get_xaxis().set_visible(False)
-                ax[i,0].get_yaxis().set_visible(False)
                 
                 masked = RescaleData(masked[np.newaxis, :, :, np.newaxis], a=-1, b=1)
                 reconstr = gmodel.predict(masked)
-            
+
+                ax[i,0].imshow(masked[0,:,:,0])
+                ax[i,0].get_xaxis().set_visible(False)
+                ax[i,0].get_yaxis().set_visible(False)
+         
                 ax[i,1].imshow(reconstr[0,:,:,0])
                 ax[i,1].get_xaxis().set_visible(False)
                 ax[i,1].get_yaxis().set_visible(False)
@@ -118,5 +118,5 @@ class Plots:
             ax[0,2].set_title('original', size=17)
             fig.tight_layout()
             fig.subplots_adjust(top=0.94)
-            plt.savefig('%simages/generated_test/test_reconst_epoch_%d.png' %(self.path_output, epch), bbox_inches='tight')
+            plt.savefig('%simages/generated_test/test_reconst_epoch_%d.png' %(self.path_output, epch+1), bbox_inches='tight')
             plt.close('all')

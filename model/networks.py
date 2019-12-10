@@ -1,8 +1,9 @@
 import numpy as np
 
+from keras import backend as K
 from keras.layers import Dense, Dropout, Flatten, Reshape, BatchNormalization, Input, Activation, concatenate
 from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.convolutional import Conv2D, Conv2DTranspose, AveragePooling2D
+from keras.layers.convolutional import Conv2D, Conv2DTranspose, MaxPooling2D, AveragePooling2D
 from keras.utils import multi_gpu_model, plot_model
 from keras import models, optimizers, initializers, callbacks, regularizers
 
@@ -27,33 +28,32 @@ class NetworkComponents:
         img_input = Input(shape=self.conf.img_shape)
 
         # first downsample
-        l1 = Conv2D(filters=int(self.conf.coarse_dim/4), kernel_size=self.conf.filters,
+        l1 = Conv2D(filters=int(self.conf.coarse_dim/8), kernel_size=self.conf.filters,
                      strides=2, kernel_initializer=kinit, padding='same')(img_input)
+        l1 = BatchNormalization()(l1)
         l1 = LeakyReLU(alpha=0.01)(l1)
-        l1 = BatchNormalization(momentum=0.9)(l1)
         l1 = Dropout(self.conf.dropout)(l1)
 
         # second downsample
-        l2 = Conv2D(filters=int(self.conf.coarse_dim/2), kernel_size=self.conf.filters, 
+        l2 = Conv2D(filters=int(self.conf.coarse_dim/4), kernel_size=self.conf.filters, 
                      strides=2, kernel_initializer=kinit, padding='same')(l1)
+        l2 = BatchNormalization()(l2)
         l2 = LeakyReLU(alpha=0.01)(l2)
-        l2 = BatchNormalization(momentum=0.9)(l2)
         l2 = Dropout(self.conf.dropout)(l2)
 
         # third downsample
-        l3 = Conv2D(filters=int(self.conf.coarse_dim), kernel_size=self.conf.filters, 
+        l3 = Conv2D(filters=int(self.conf.coarse_dim/2), kernel_size=self.conf.filters, 
                      strides=2, kernel_initializer=kinit, padding='same')(l2)
+        l3 = BatchNormalization()(l3)
         l3 = LeakyReLU(alpha=0.01)(l3)
-        l3 = BatchNormalization(momentum=0.9)(l3)
         features_output = Dropout(self.conf.dropout)(l3)
 
         # Classifier Branch
         label_output = Flatten()(features_output)
         label_output = Dense(self.conf.img_shape[2], activation='sigmoid')(label_output)
         
-        #D = models.Model(img_input, [validity_output, label_output])
         D = models.Model(img_input, label_output)
-    
+
         return D
 
     def Autoencoder(self):
@@ -249,4 +249,69 @@ class NetworkComponents:
         output_image = Conv2D(filters=int(self.conf.img_shape[2]), kernel_size=self.conf.filters, 
                               kernel_initializer=kinit, padding='same', use_bias=False, activation='tanh', name='out_C')(d1)
         
+        return models.Model(img_input, output_image)
+
+
+
+    def Unet2(self):
+        print('Create U-Net-2 Generator network...')
+
+        def Conv2D_SubLayers(prev_layer, nr_filts, layer_name):
+            # first layer
+            a = Conv2D(filters=nr_filts, kernel_size=self.conf.filters, padding='same',
+                       kernel_initializer="he_normal", name='%s_C1' %layer_name)(prev_layer)
+            a = BatchNormalization(name='%s_BN1' %layer_name)(a)
+            a = Activation("relu", name='%s_A1' %layer_name)(a)
+            # second layer
+            a = Conv2D(filters=nr_filts, kernel_size=self.conf.filters, padding='same',
+                       kernel_initializer="he_normal", name='%s_C2' %layer_name)(a)
+            a = BatchNormalization(name='%s_BN2' %layer_name)(a)
+            a = Activation("relu", name='%s_A2' %layer_name)(a)
+            return a
+
+        img_input = Input(shape=self.conf.img_shape, name='Masked_Image')
+
+        # U-Net Encoder - upper level
+        e1c = Conv2D_SubLayers(prev_layer=img_input, nr_filts=int(self.conf.coarse_dim/8), layer_name='E1')
+        e1 = MaxPooling2D(pool_size=(2, 2), name='E1_P')(e1c)
+        e1 = Dropout(self.conf.dropout*0.5, name='E1_D2')(e1)
+
+        # U-Net Encoder - second level
+        e2c = Conv2D_SubLayers(prev_layer=e1, nr_filts=int(self.conf.coarse_dim/4), layer_name='E2')
+        e2 = MaxPooling2D(pool_size=(2, 2), name='E2_P')(e2c)
+        e2 = Dropout(self.conf.dropout, name='E2_D2')(e2)
+
+        # U-Net Encoder - third level
+        e3c = Conv2D_SubLayers(prev_layer=e2, nr_filts=int(self.conf.coarse_dim/2), layer_name='E3')
+        e3 = MaxPooling2D(pool_size=(2, 2), name='E3_P')(e3c)
+        e3 = Dropout(self.conf.dropout, name='E3_D2')(e3)  
+                
+        # U-Net Encoder - bottom level
+        b = Conv2D_SubLayers(prev_layer=e3, nr_filts=int(self.conf.coarse_dim), layer_name='B')
+
+        # U-Net Decoder - third level
+        d3 = Conv2DTranspose(filters=int(self.conf.coarse_dim/2), kernel_size=self.conf.filters, 
+                             strides=(2, 2), padding='same', name='D3_DC')(b)
+        d3 = concatenate([d3, e3c], name='merge_layer_E3_A2')
+        d3 = Dropout(self.conf.dropout, name='D3_D1')(d3)
+        d3 = Conv2D_SubLayers(prev_layer=d3, nr_filts=int(self.conf.coarse_dim/2), layer_name='D3')
+
+        # U-Net Decoder - second level
+        d2 = Conv2DTranspose(filters=int(self.conf.coarse_dim/4), kernel_size=self.conf.filters, 
+                             strides=(2, 2), padding='same', name='D2_DC')(d3)
+        d2 = concatenate([d2, e2c], name='merge_layer_E2_A2')
+        d2 = Dropout(self.conf.dropout, name='D2_D1')(d2)
+        d2 = Conv2D_SubLayers(prev_layer=d2, nr_filts=int(self.conf.coarse_dim/4), layer_name='D2')
+
+        # U-Net Decoder - upper level
+        d1 = Conv2DTranspose(filters=int(self.conf.coarse_dim/8), kernel_size=self.conf.filters, 
+                             strides=(2, 2), padding='same', name='D1_DC')(d2)
+        d1 = concatenate([d1, e1c], name='merge_layer_E1_A2')
+        d1 = Dropout(self.conf.dropout, name='D1_D1')(d1)
+        d1 = Conv2D_SubLayers(prev_layer=d1, nr_filts=int(self.conf.coarse_dim/4), layer_name='D1')
+
+        # Outro Layer
+        output_image = Conv2D(filters=int(self.conf.img_shape[2]), kernel_size=self.conf.filters, 
+                              strides=(1, 1), padding='same', activation='tanh', name='out_C')(d1)
+
         return models.Model(img_input, output_image)

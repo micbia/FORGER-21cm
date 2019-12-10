@@ -1,4 +1,4 @@
-import numpy as np, os, configparser, matplotlib.pylab as plt
+import numpy as np, os, sys, configparser, matplotlib.pylab as plt
 
 from time import time, strftime, gmtime
 from datetime import datetime
@@ -71,11 +71,11 @@ class InpaintNetwork:
         if(self.conf.type_of_gen == 'auto'):
             self.generator = net.Autoencoder()
         elif(self.conf.type_of_gen == 'unet'):
-            self.generator = net.Unet()
+            self.generator = net.Unet2()
         
         self.discriminator = net.Discriminator()
         self.discriminator.compile(loss=self.lossD, optimizer=self.optimizer)
-
+        
         masked_img = models.Input(shape=self.conf.img_shape)
         reconstr_img = self.generator(masked_img)
 
@@ -154,32 +154,36 @@ class InpaintNetwork:
                 set_value(self.discriminator.optimizer.lr, lr)
 
             for bt in range(self.conf.batch_size):
-                self.discriminator.trainable = True
                 # train discriminator more then generator
-                for k in range(5):
+                self.discriminator.trainable = True
+                for k in range(10):
                     # create batch of real and masked images
                     real_images, masksed_images, maskset = ld.LoadMaskedData(batch=self.conf.batch_size, rescale=True)
 
                     # generator reconstructs the missing part in masked images
                     fake_images = self.generator.predict(masksed_images)
-
+                
                     # generate smooth label, with 5% of indexes flipped
                     real_label, fake_label = GenerateLabels(self.conf.batch_size)
 
                     # train adversary network, for separated mini-batchs, see Ioffe et al. 2015
-                    
-                    
                     loss_real = self.discriminator.train_on_batch(real_images, real_label)
                     loss_fake = self.discriminator.train_on_batch(fake_images, fake_label)
                 self.discriminator.trainable = False
-
+                
+                #layer_outputs = [layer.output for layer in ] 
+                #print(self.discriminator.predict(real_images).T[0])
+                #print(loss_fake)
                 # train generator network
                 real_label2 = GenerateLabels(self.conf.batch_size, return_label='real')
                 if(len(self.lossGAN) == 1 and len(self.wlossGAN) == 1):
                     loss_gan = self.gan.train_on_batch(masksed_images, real_label2)
                 else:
                     loss_gan = self.gan.train_on_batch(masksed_images, [fake_images, real_label2])
-
+                #print(real_label2)
+                #print(loss_gan)
+                #print(self.gan.predict(fake_images).T[0])
+                #sys.exit()
             # store losses at the end of every batch cycle
             self.loss_D_real.append(loss_real)
             self.loss_D_fake.append(loss_fake)
@@ -203,9 +207,9 @@ class InpaintNetwork:
 
             t2 = time()
             if(len(self.lossGAN) == 1 and len(self.wlossGAN) == 1):
-                print(' Epoch %d : t=%2ds  ---  [ D: L_real=%.3e, L_fake=%.3e ]  [ G: L_gan=%.3e ]' %(ep+1, t2-t1, self.loss_D_real[ep], self.loss_D_fake[ep], self.loss_G[ep]))
+                print(' Epoch %d : t=%2ds  ---  [ D: L_real=%.2e, L_fake=%.2e ]  [ G: L_gan=%.2e ]' %(ep+1, t2-t1, self.loss_D_real[ep], self.loss_D_fake[ep], self.loss_G[ep]))
             else:
-                print(' Epoch %d : t=%2ds  ---  [ D: L_real=%.3e, L_fake=%.3e ]  [ G: L_gan=%.3e, L1=%.3e, L2=%.3e ]' %(ep+1, t2-t1, self.loss_D_real[ep], self.loss_D_fake[ep], self.loss_G[ep], self.loss_G1[ep], self.loss_G2[ep]))
+                print(' Epoch %d : t=%2ds  ---  [ D: L_real=%.2e, L_fake=%.2e ]  [ G: L_gan=%.2e, L1=%.2e, L2=%.2e ]' %(ep+1, t2-t1, self.loss_D_real[ep], self.loss_D_fake[ep], self.loss_G[ep], self.loss_G1[ep], self.loss_G2[ep]))
 
         # save final losses and weights
         if(len(self.lossGAN) == 1 and len(self.wlossGAN) == 1):

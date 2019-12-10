@@ -52,8 +52,15 @@ class NetworkConfig:
         self.learn_rate     = eval(trainconfig['LR'])
         self.lr_decay       = eval(trainconfig['LR_DECAY'])
         self.lossD          = trainconfig['LOSS_D']
-        self.lossGAN        = trainconfig['LOSS_GAN'].split(', ')
-        self.wlossGAN       = list(np.array(eval(trainconfig['WLOSS_GAN']), dtype=float))
+        try:
+            self.lossGAN    = trainconfig['LOSS_GAN'].split(', ')
+        except:
+            self.lossGAN    = [trainconfig['LOSS_GAN']]
+        
+        try:
+            self.wlossGAN   = list(np.array(eval(trainconfig['WLOSS_GAN']), dtype=float))
+        except:
+            self.wlossGAN   = [eval(trainconfig['WLOSS_GAN'])]
         self.dropout        = eval(trainconfig['DROPOUT'])
         
         resumeconfig = config['RESUME']
