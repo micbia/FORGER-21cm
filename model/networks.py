@@ -23,34 +23,32 @@ class NetworkComponents:
     def Discriminator(self):
         print('Create Adversary network...')
 
-        kinit = initializers.RandomNormal(mean=0.0, stddev=0.02)
-        
         img_input = Input(shape=self.conf.img_shape)
 
         # first downsample
         l1 = Conv2D(filters=int(self.conf.coarse_dim/8), kernel_size=self.conf.filters,
-                     strides=2, kernel_initializer=kinit, padding='same')(img_input)
+                     strides=2, kernel_initializer="he_normal", padding='same')(img_input)
         l1 = BatchNormalization()(l1)
         l1 = LeakyReLU(alpha=0.01)(l1)
         l1 = Dropout(self.conf.dropout)(l1)
 
         # second downsample
         l2 = Conv2D(filters=int(self.conf.coarse_dim/4), kernel_size=self.conf.filters, 
-                     strides=2, kernel_initializer=kinit, padding='same')(l1)
+                     strides=2, kernel_initializer="he_normal", padding='same')(l1)
         l2 = BatchNormalization()(l2)
         l2 = LeakyReLU(alpha=0.01)(l2)
         l2 = Dropout(self.conf.dropout)(l2)
 
         # third downsample
         l3 = Conv2D(filters=int(self.conf.coarse_dim/2), kernel_size=self.conf.filters, 
-                     strides=2, kernel_initializer=kinit, padding='same')(l2)
+                     strides=2, kernel_initializer="he_normal", padding='same')(l2)
         l3 = BatchNormalization()(l3)
         l3 = LeakyReLU(alpha=0.01)(l3)
         features_output = Dropout(self.conf.dropout)(l3)
 
         # Classifier Branch
         label_output = Flatten()(features_output)
-        label_output = Dense(self.conf.img_shape[2], activation='sigmoid')(label_output)
+        label_output = Dense(self.conf.img_shape[2], kernel_initializer="he_normal", activation='sigmoid')(label_output)
         
         D = models.Model(img_input, label_output)
 

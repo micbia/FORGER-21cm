@@ -156,7 +156,7 @@ class InpaintNetwork:
             for bt in range(self.conf.batch_size):
                 # train discriminator more then generator
                 self.discriminator.trainable = True
-                for k in range(10):
+                for k in range(1):
                     # create batch of real and masked images
                     real_images, masksed_images, maskset = ld.LoadMaskedData(batch=self.conf.batch_size, rescale=True)
 
