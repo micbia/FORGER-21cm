@@ -4,7 +4,7 @@ from keras import backend as K
 from keras.losses import binary_crossentropy
 from keras.applications.vgg16 import VGG16
 from keras.models import Model
-from keras.layers import Layer, subtract
+from keras.layers import Layer, Multiply
 
 
 
@@ -32,12 +32,13 @@ def UnFreezeNetwork(net, state):
     net.trainable = state
 
 
-
 class NegativeLayer(Layer):
   def __init__(self):
     super(NegativeLayer, self).__init__()
-  
+ 
+
   def call(self, inputs):
-    ones_tensor = K.ones_like(inputs)
-    negative_input = subtract([ones_tensor, inputs])
+    
+    ones_tensor = -1 * K.ones_like(inputs)
+    negative_input = Multiply()([ones_tensor, inputs])
     return negative_input

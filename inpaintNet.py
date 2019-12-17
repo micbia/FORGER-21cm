@@ -253,13 +253,13 @@ class InpaintNetwork:
             # store losses at the end of every batch cycle
             self.loss_D_real.append(loss_real)
             self.loss_D_fake.append(loss_fake)
-            if(len(self.lossGAN) == 1 and len(self.wlossGAN) == 1 or self.nr_discr != 1):
+            if(len(self.lossGAN) == 1 and len(self.wlossGAN) == 1 or self.nr_discr == 1):
                 self.loss_G.append(loss_gan)
             else:
                 self.loss_G.append(loss_gan[0])
                 self.loss_G1.append(loss_gan[1])
                 self.loss_G2.append(loss_gan[2])
-
+            
             # networks prediction for PDF
             if(self.nr_discr == 1):
                 distr_real = self.discriminator.predict(real_images).T[0]
@@ -267,10 +267,9 @@ class InpaintNetwork:
             else:
                 global_distr_real = self.globaldiscriminator.predict(real_images).T[0]
                 global_distr_fake = self.globaldiscriminator.predict(fake_images).T[0]
-                local_distr_real = self.localdiscriminator.predict(real_images).T[0]
-                local_distr_fake = self.localdiscriminator.predict(fake_images).T[0]
+                local_distr_real = self.localdiscriminator.predict([real_images, masks]).T[0]
+                local_distr_fake = self.localdiscriminator.predict([fake_images, masks]).T[0]
             
-            print(self.gan.predict([real_images, masks]))
             distr_reconst = self.gan.predict([real_images, masks])[1].T[0]
 
 
@@ -286,18 +285,17 @@ class InpaintNetwork:
                     if(self.nr_discr == 1):
                         plot.PlotDistribution(ep ,fake_label, distr_fake, real_label, distr_real, real_label2, distr_reconst)
                     else:
-                        plot.PlotDistribution(ep ,fake_label, global_distr_fake, real_label, global_distr_real, real_label2, distr_reconst)
-                        plot.PlotDistribution(ep ,fake_label, local_distr_fake, real_label, local_distr_real, real_label2, distr_reconst)
+                        plot.PlotDistribution(ep ,fake_label, global_distr_fake, real_label, global_distr_real, global_real_label, distr_reconst)
+                        plot.PlotDistribution(ep ,fake_label, local_distr_fake, real_label, local_distr_real, local_real_label, distr_reconst)
                         
-                    plot.PlotLosses(epch=ep, prev_epch=prev_epoch, loss_D_real=self.loss_D_real, loss_D_fake=self.loss_D_fake, loss_G=self.loss_G, lr=self.lr)
                 prev_epoch = ep
 
             t2 = time()
             if(len(self.lossGAN) == 1 and len(self.wlossGAN) == 1):
-                print(' Epoch %d : t=%3ds  ---  [ D: L_real=%.2e, L_fake=%.2e ]  [ G: L_gan=%.2e ]' %(ep+1, t2-t1, self.loss_D_real[ep], self.loss_D_fake[ep], self.loss_G[ep]))
+                print(' Epoch %d : t=%3ds  ---  [ D: L_real=%.2f, L_fake=%.2f ]  [ G: L_gan=%.2f ]' %(ep+1, t2-t1, self.loss_D_real[ep], self.loss_D_fake[ep], self.loss_G[ep]))
             else:
-                print(' Epoch %d : t=%3ds  ---  [ D: L_real=%.2e, L_fake=%.2e ]  [ G: L_gan=%.2e, L1=%.2e, L2=%.2e ]' %(ep+1, t2-t1, self.loss_D_real[ep], self.loss_D_fake[ep], self.loss_G[ep], self.loss_G1[ep], self.loss_G2[ep]))
-
+                print(' Epoch %d : t=%3ds  ---  [ D: L_real=%.2f, L_fake=%.2f ]  [ G: L_gan=%.2f, L1=%.2f, L2=%.2f ]' %(ep+1, t2-t1, self.loss_D_real[ep], self.loss_D_fake[ep], self.loss_G[ep], self.loss_G1[ep], self.loss_G2[ep]))
+            
         # save final losses and weights
         if(len(self.lossGAN) == 1 and len(self.wlossGAN) == 1):
             np.savetxt('%slossG.txt' %self.path_output, self.loss_G)

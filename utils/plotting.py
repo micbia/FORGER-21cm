@@ -57,7 +57,7 @@ class Plots:
         sns.kdeplot(data_real, label_real, n_levels=nl, cmap='Oranges', shade=True, shade_lowest=False)
         
         plt.scatter(x=data_reconst, y=label_reconst, marker='x', color='black', label='GAN - PDF output')
-        plt.title('Epoch:%3d' %(epch+1), size=20), plt.xlabel('Predicted label', size=16), plt.ylabel('True label', size=16), plt.legend(loc='bottom right')
+        plt.title('Epoch:%3d' %(epch+1), size=20), plt.xlabel('Predicted label', size=16), plt.ylabel('True label', size=16), plt.legend(loc='lower right')
         plt.xlim(-0.1, 1.3), plt.ylim(-0.1, 1.3)
         plt.savefig('%simages/pdf_gan/pdf_ep-%d.png' %(self.path_output, epch+1), bbox_inches='tight')
         plt.close('all')
@@ -116,8 +116,10 @@ class Plots:
                 mask = np.array(Image.open(self.path_mask+self.mask_arr[i]).resize(img.shape))
                 masked = np.where(mask == np.max(mask), img.min(), img)
                 
+                img = RescaleData(img[np.newaxis, :, :, np.newaxis], a=-1, b=1)
+                mask = RescaleData(mask[np.newaxis, :, :, np.newaxis], a=-1, b=1)
                 masked = RescaleData(masked[np.newaxis, :, :, np.newaxis], a=-1, b=1)
-                reconstr = gmodel.predict(masked)
+                reconstr = gmodel.predict([img, mask])
 
                 ax[i,0].imshow(masked[0,:,:,0])
                 ax[i,0].get_xaxis().set_visible(False)
@@ -127,7 +129,7 @@ class Plots:
                 ax[i,1].get_xaxis().set_visible(False)
                 ax[i,1].get_yaxis().set_visible(False)
 
-                ax[i,2].imshow(img)
+                ax[i,2].imshow(img[0,:,:,0])
                 ax[i,2].get_xaxis().set_visible(False)
                 ax[i,2].get_yaxis().set_visible(False)
 
