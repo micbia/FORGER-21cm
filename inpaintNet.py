@@ -199,7 +199,12 @@ class InpaintNetwork:
                 lr = K.get_value(self.gan.optimizer.lr)
                 lr *= 0.5
                 set_value(self.gan.optimizer.lr, lr)
-                set_value(self.discriminator.optimizer.lr, lr)
+                
+                if(self.nr_discr == 1):
+                    set_value(self.discriminator.optimizer.lr, lr)
+                else:
+                    set_value(self.globaldiscriminator.optimizer.lr, lr)
+                    set_value(self.localdiscriminator.optimizer.lr, lr)
 
             for bt in range(self.conf.batch_size):
                 # un-freeze discriminator, freze generator
