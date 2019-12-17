@@ -52,6 +52,7 @@ class NetworkConfig:
         self.learn_rate     = eval(trainconfig['LR'])
         self.lr_decay       = eval(trainconfig['LR_DECAY'])
         self.lossD          = trainconfig['LOSS_D']
+        self.Dsize          = eval(trainconfig['D_SIZE'])
         try:
             self.lossGAN    = trainconfig['LOSS_GAN'].split(', ')
         except:

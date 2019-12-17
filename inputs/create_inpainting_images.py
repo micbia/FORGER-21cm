@@ -18,6 +18,7 @@ out_res  = int(args[np.argwhere(args=='-out_res')+1]) if '-out_res' in args else
 
 sim = 64
 mesh = 256
+smt = True
 '''
 # 500 Mpc
 path_xi = '/research/prace3/reion/500Mpc_RT/500Mpc_f5_8.2pS_300_stochastic_Cmean/results/'
@@ -53,22 +54,25 @@ for i in tqdm(range(len(redshift))):
         xf = t2c.XfracFile('%sxfrac3d_%.3f.bin' %(path_xi, z)).xi
         dn = t2c.DensityFile('%s%.3fn_all.dat' %(path_dens, z)).cgs_density
         dt = t2c.calc_dt(xf, dn, z)
-
         ps_dt = t2c.power_spectrum_nd(dt)
-        #ps_dd = ndimage.gaussian_filter(ps_dt, 5, mode='wrap')
-        #rs_dt = np.resize(ps_dt, (out_res,out_res,out_res))
-        
+	if(smt): ps_dt = ndimage.gaussian_filter(ps_dt, 5, mode='wrap')
+
 	for ax in ['x', 'y', 'z']:
 		if(ax=='x'):
 			rs_dt = np.log10(ps_dt[:, int(mesh/2):int(mesh/2)+out_res, int(mesh/2):int(mesh/2)+out_res])
 		elif(ax=='y'):
 			rs_dt = np.log10(ps_dt[int(mesh/2):int(mesh/2)+out_res, :, int(mesh/2):int(mesh/2)+out_res])
-			rs_dt = np.transpose(rs_dt, axes=(1, 0, 2))		
 		else:
 			rs_dt = np.log10(ps_dt[int(mesh/2):int(mesh/2)+out_res, int(mesh/2):int(mesh/2)+out_res, :])
-			rs_dt = np.transpose(rs_dt, axes=(2, 0, 1))
+		
+	        for j in range(len(rs_dt)):
+			if(ax=='x'):
+				pp = rs_dt[j, :, :]
+			elif(ax=='y'):
+				pp = rs_dt[:, j, :]
+			else:
+				pp = rs_dt[:, :, j]
 
-	        for j, pp in enumerate(rs_dt):
 	                SaveMatrix('%s/image_%si%dj%d_%dMpc.bin' %(out_dir, ax, i, j, sim), pp, (out_res, out_res))
 	                min_arr.append(np.min(pp))
 	                max_arr.append(np.max(pp))

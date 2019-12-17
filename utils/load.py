@@ -41,7 +41,7 @@ class LoadData:
         return subsample
 
 
-    def LoadMaskedData(self, batch, rescale=False):
+    def LoadMaskedData(self, batch):
         maskset = np.zeros(np.append(batch, self.data_shape))
         masked = np.zeros(np.append(batch, self.data_shape))
         batch_data = self.BatchSample(sample=self.dataset, nr_subsample=batch)
@@ -52,13 +52,14 @@ class LoadData:
             mask = Image.open(batch_mask[i])
             mask_resized = np.array(mask.resize(tuple(self.data_shape))) 
             maskset[i] = mask_resized
-            masked[i] = np.where(mask_resized>np.mean(mask_resized)*1.1, batch_data.max(), batch_data[i,:,:,0]) # one channel
+            masked[i] = np.where(mask_resized == np.max(mask_resized), batch_data.min(), batch_data[i,:,:,0]) # one channel
 
         # Rescale images values between -1 and 1 
         batch_data = RescaleData(batch_data, a=-1, b=1)
         masked = RescaleData(masked, a=-1, b=1)
         maskset = RescaleData(maskset, a=-1, b=1)
 
-        masked = masked[:, :, :, np.newaxis]
         maskset = maskset[:, :, :, np.newaxis]
+        masked = masked[:, :, :, np.newaxis]
+        
         return np.array(batch_data), np.array(masked), np.array(maskset)

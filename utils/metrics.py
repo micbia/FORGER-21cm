@@ -4,6 +4,8 @@ from keras import backend as K
 from keras.losses import binary_crossentropy
 from keras.applications.vgg16 import VGG16
 from keras.models import Model
+from keras.layers import Layer, subtract
+
 
 
 def R2(y_true, y_pred):
@@ -22,3 +24,20 @@ def perceptual_loss(y_true, y_pred):
     loss_model = Model(inputs=vgg.input, outputs=vgg.get_layer('block3_conv3').output)
     loss_model.trainable = False
     return K.mean(K.square(loss_model(y_true) - loss_model(y_pred)))
+
+
+def UnFreezeNetwork(net, state):
+    for layer in net.layers:
+        layer.trainable = state
+    net.trainable = state
+
+
+
+class NegativeLayer(Layer):
+  def __init__(self):
+    super(NegativeLayer, self).__init__()
+  
+  def call(self, inputs):
+    ones_tensor = K.ones_like(inputs)
+    negative_input = subtract([ones_tensor, inputs])
+    return negative_input
